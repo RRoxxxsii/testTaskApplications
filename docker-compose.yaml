@@ -1,0 +1,75 @@
+services:
+
+  # FastAPI
+  backend:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - .:/proj/
+    restart: always
+    networks:
+      - backend-prod
+    ports:
+      - '127.0.0.1:8000:8000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # PostgreSQL
+  db:
+    image: postgres:16.1-alpine
+    hostname: postgres
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - backend-prod
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.8.0
+    networks:
+      - backend-prod
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 2181:2181
+    healthcheck:
+      test: [ "CMD", "echo", "ruok", "|", "nc", "localhost", "2181", "|", "grep", "imok" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    hostname: kafka
+    networks:
+      - backend-prod
+    env_file:
+      - .env
+    ports:
+      - 9092:9092
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+
+
+networks:
+  backend-prod:
+    driver: bridge
+
+volumes:
+  db:
+    driver: local
