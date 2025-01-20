@@ -84,5 +84,3 @@ curl -X 'GET' \
 * Alembic
 * asyncpg
 * SQLAlchemy
-* pytest
-* pytest_asyncio
